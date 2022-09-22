@@ -43,6 +43,7 @@ public class UserController {
     public Result<String> sendMsg(@RequestBody User user, HttpSession session) {
         //获取手机号
         String phone = user.getPhone();
+        String key = "code_" + phone;
 
         if (StringUtils.isNotEmpty(phone)) {
             //生成4位随机验证码
@@ -56,7 +57,7 @@ public class UserController {
             //session.setAttribute(phone, code);
 
             //将生成的验证码保存到redis中
-            redisTemplate.opsForValue().set("code", code, 5, TimeUnit.MINUTES);
+            redisTemplate.opsForValue().set(key, code, 5, TimeUnit.MINUTES);
 
             return Result.success("手机验证码发送成功");
         }
@@ -68,11 +69,11 @@ public class UserController {
      * 移动端用户登录
      *
      * @param map
-     * @param session
+     * @param request
      * @return
      */
     @PostMapping("/login")
-    public Result<User> login(@RequestBody Map map, HttpSession session) {
+    public Result<User> login(@RequestBody Map map, HttpServletRequest request) {
         log.info("phone: {}, code: {}", map.get("phone"), map.get("code"));
 
         //获取手机号
@@ -80,11 +81,13 @@ public class UserController {
         //获取验证码
         String code = map.get("code").toString();
 
+        String key = "code_" + phone;
+
         //从session中获取保存的验证码
         //String codeInSession = session.getAttribute("code").toString();
 
         //从redis中获取验证码
-        String codeInRedis = (String) redisTemplate.opsForValue().get("code");
+        String codeInRedis = (String) redisTemplate.opsForValue().get(key);
 
         if (codeInRedis != null && codeInRedis.equals(code)) {
             //如果对比成功，则登录成功
@@ -99,9 +102,9 @@ public class UserController {
                 user.setStatus(1);
                 userService.save(user);
             }
-//            request.getSession().setAttribute("user", user1.getId());
+            request.getSession().setAttribute("user", user.getId());
 
-            redisTemplate.delete("code");
+            redisTemplate.delete(key);
             return Result.success(user);
         }
 
