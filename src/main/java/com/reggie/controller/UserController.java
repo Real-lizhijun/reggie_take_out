@@ -9,6 +9,7 @@ import com.reggie.utils.SMSUtils;
 import com.reggie.utils.ValidateCodeUtils;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang.StringUtils;
+import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -18,6 +19,7 @@ import javax.annotation.Resource;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpSession;
 import java.util.Map;
+import java.util.concurrent.TimeUnit;
 
 @RestController
 @RequestMapping("/user")
@@ -26,6 +28,9 @@ public class UserController {
 
     @Resource
     private UserService userService;
+
+    @Resource
+    private RedisTemplate redisTemplate;
 
     /**
      * 发送手机短信验证码
@@ -48,7 +53,10 @@ public class UserController {
             //SMSUtils.sendMessage("瑞吉外卖", "", phone, code);
 
             //将生成的验证码保存到session
-            session.setAttribute(phone, code);
+            //session.setAttribute(phone, code);
+
+            //将生成的验证码保存到redis中
+            redisTemplate.opsForValue().set("code", code, 5, TimeUnit.MINUTES);
 
             return Result.success("手机验证码发送成功");
         }
@@ -73,9 +81,12 @@ public class UserController {
         String code = map.get("code").toString();
 
         //从session中获取保存的验证码
-        String codeInSession = session.getAttribute("code").toString();
+        //String codeInSession = session.getAttribute("code").toString();
 
-        if (codeInSession != null && codeInSession.equals(code)) {
+        //从redis中获取验证码
+        String codeInRedis = (String) redisTemplate.opsForValue().get("code");
+
+        if (codeInRedis != null && codeInRedis.equals(code)) {
             //如果对比成功，则登录成功
             //判断当前手机号是否为新用户，如果是新用户，则自动完成注册
             LambdaQueryWrapper<User> userLambdaQueryWrapper = new LambdaQueryWrapper<>();
@@ -89,6 +100,8 @@ public class UserController {
                 userService.save(user);
             }
 //            request.getSession().setAttribute("user", user1.getId());
+
+            redisTemplate.delete("code");
             return Result.success(user);
         }
 
