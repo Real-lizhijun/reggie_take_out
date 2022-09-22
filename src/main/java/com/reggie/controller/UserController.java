@@ -59,37 +59,39 @@ public class UserController {
     /**
      * 移动端用户登录
      *
-     * @param user
-     * @param request
+     * @param map
+     * @param session
      * @return
      */
     @PostMapping("/login")
-    public Result<String> login(@RequestBody User user, HttpServletRequest request) {
-        //获取手机号
-        //String phone = map.get("phone").toString();
-        log.info("user: {}", user.toString());
+    public Result<User> login(@RequestBody Map map, HttpSession session) {
+        log.info("phone: {}, code: {}", map.get("phone"), map.get("code"));
 
+        //获取手机号
+        String phone = map.get("phone").toString();
         //获取验证码
-        //String code = map.get("code").toString();
+        String code = map.get("code").toString();
 
         //从session中获取保存的验证码
-        //String codeInSession = session.getAttribute("code").toString();
+        String codeInSession = session.getAttribute("code").toString();
 
-        //if (codeInSession != null && codeInSession.equals(code)) {
-        //如果对比成功，则登录成功
-        //判断当前手机号是否为新用户，如果是新用户，则自动完成注册
-        LambdaQueryWrapper<User> userLambdaQueryWrapper = new LambdaQueryWrapper<>();
-        userLambdaQueryWrapper.eq(User::getPhone, user.getPhone());
+        if (codeInSession != null && codeInSession.equals(code)) {
+            //如果对比成功，则登录成功
+            //判断当前手机号是否为新用户，如果是新用户，则自动完成注册
+            LambdaQueryWrapper<User> userLambdaQueryWrapper = new LambdaQueryWrapper<>();
+            userLambdaQueryWrapper.eq(User::getPhone, phone);
 
-        User user1 = userService.getOne(userLambdaQueryWrapper);
-        if (user1 == null) {
-            user1 = new User();
-            user1.setPhone(user.getPhone());
-            user1.setStatus(1);
-            userService.save(user1);
+            User user = userService.getOne(userLambdaQueryWrapper);
+            if (user == null) {
+                user = new User();
+                user.setPhone(phone);
+                user.setStatus(1);
+                userService.save(user);
+            }
+//            request.getSession().setAttribute("user", user1.getId());
+            return Result.success(user);
         }
-        request.getSession().setAttribute("user", user1.getId());
-        return Result.success("登录成功");
-        //return Result.error("登录失败");
+
+        return Result.error("登录失败");
     }
 }
